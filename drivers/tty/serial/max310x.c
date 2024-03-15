@@ -661,7 +661,7 @@ static void max310x_handle_rx(struct uart_port *port, unsigned int rxlen)
 		 * Break condition, parity checking, framing errors -- they
 		 * are all ignored. That means that we can do a batch-read.
 		 *
-		 * There is a small opportunity for race if the RX FIFO
+		 * There is a small oplusrtunity for race if the RX FIFO
 		 * overruns while we're reading the buffer; the datasheets says
 		 * that the LSR register applies to the "current" character.
 		 * That's also the reason why we cannot do batched reads when

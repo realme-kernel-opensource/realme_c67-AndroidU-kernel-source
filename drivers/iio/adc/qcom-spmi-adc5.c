@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -890,6 +891,17 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_PM5_SMB_TEMP)
 	[ADC5_PARALLEL_ISENSE]	= ADC5_CHAN_VOLT("parallel_isense", 0,
 					SCALE_HW_CALIB_PM5_CUR)
+/*#ifdef OPLUS_FEATURE_CHG_BASIC*/
+	[ADC5_GPIO1_100K_PU]    = ADC5_CHAN_VOLT("gpio1_100k_pu", 0,
+                                        SCALE_HW_CALIB_DEFAULT)
+        [ADC5_GPIO2_100K_PU]    = ADC5_CHAN_VOLT("gpio2_100k_pu", 0,
+                                        SCALE_HW_CALIB_DEFAULT)
+        [ADC5_GPIO3_100K_PU]    = ADC5_CHAN_VOLT("gpio3_100k_pu", 0,
+                                        SCALE_HW_CALIB_DEFAULT)
+	[ADC5_GPIO4_100K_PU]	= ADC5_CHAN_TEMP("gpio4_100k_pu", 0,
+					SCALE_HW_CALIB_THERM_100K_PULLUP)
+/*else*/
+/*
 	[ADC5_GPIO1_100K_PU]	= ADC5_CHAN_TEMP("gpio1_100k_pu", 0,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC5_GPIO2_100K_PU]	= ADC5_CHAN_TEMP("gpio2_100k_pu", 0,
@@ -898,6 +910,8 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
 	[ADC5_GPIO4_100K_PU]	= ADC5_CHAN_TEMP("gpio4_100k_pu", 0,
 					SCALE_HW_CALIB_THERM_100K_PULLUP)
+*/
+/*endif*/
 };
 
 static const struct adc5_channels adc7_chans_pmic[ADC5_MAX_CHANNEL] = {
@@ -1146,6 +1160,7 @@ static const struct adc5_data adc5_data_pmic5_lite = {
 	/* On PMI632, IBAT LSB = 5A/32767 */
 	.full_scale_code_cur = 5000,
 	.adc_chans = adc5_chans_pmic,
+	.info = &adc5_info,
 	.decimation = (unsigned int []) {250, 420, 840},
 	.hw_settle_1 = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					800, 900, 1, 2, 4, 6, 8, 10},
@@ -1296,6 +1311,8 @@ static int adc5_probe(struct platform_device *pdev)
 			return -ENODEV;
 		}
 	}
+
+	platform_set_drvdata(pdev, adc);
 
 	init_completion(&adc->complete);
 	mutex_init(&adc->lock);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <trace/hooks/sched.h>
@@ -9,8 +9,12 @@
 #include "walt.h"
 #include "trace.h"
 
-#define MSEC_TO_NSEC (1000 * 1000)
-
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+#include <../kernel/oplus_cpu/sched/sched_assist/sa_common.h>
+#endif
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_FRAME_BOOST)
+#include <../kernel/oplus_cpu/sched/frame_boost/frame_group.h>
+#endif
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 DEFINE_PER_CPU(u64, rt_task_arrival_time) = 0;
 static bool long_running_rt_task_trace_rgstrd;
@@ -97,6 +101,10 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 					  int ret, int *best_cpu)
 {
 	int cpu;
+
+	struct task_struct *src_curr;
+	struct rq *src_rq;
+
 	unsigned long util, best_cpu_util = ULONG_MAX;
 	unsigned long best_cpu_util_cum = ULONG_MAX;
 	unsigned long util_cum;
@@ -107,6 +115,9 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	bool best_cpu_lt = true;
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+	bool ignore_overutil = false;
+#endif
 
 	if (unlikely(walt_disabled))
 		return;
@@ -114,7 +125,19 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	if (!ret)
 		return; /* No targets found */
 
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+	adjust_rt_lowest_mask(task, lowest_mask, ret, false);
+#endif
+
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_FRAME_BOOST)
+	if (is_fbg_task(task) && frame_boost_enabled())
+		order_index = 0;
+#endif
+
 	rcu_read_lock();
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+retry:
+#endif
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
 			bool lt;
@@ -129,10 +152,25 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 
 			if (sched_cpu_high_irqload(cpu))
 				continue;
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+			if (!ignore_overutil) {
+#endif
+				if (__cpu_overutilized(cpu, tutil))
+					continue;
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+			}
+#endif
+			src_rq = cpu_rq(cpu);
 
-			if (__cpu_overutilized(cpu, tutil))
+			src_curr = READ_ONCE(src_rq->curr);
+
+			if (task_thread_info(src_curr)->preempt_count)
 				continue;
 
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_FRAME_BOOST)
+			if (!fbg_rt_task_fits_capacity(task, cpu))
+				continue;
+#endif
 			util = cpu_util(cpu);
 
 			lt = (walt_low_latency_task(cpu_rq(cpu)->curr) ||
@@ -178,6 +216,15 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 					continue;
 			}
 
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+			/*
+			 * If a available CPU is found in the current cluster
+			 * and a ux thread is running on this cpu, drop it!
+			 */
+			if (*best_cpu != -1 && test_task_ux(cpu_rq(cpu)->curr))
+				continue;
+#endif
+
 			best_idle_exit_latency = cpu_idle_exit_latency;
 			best_cpu_util_cum = util_cum;
 			best_cpu_util = util;
@@ -188,6 +235,18 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 		if (*best_cpu != -1)
 			break;
 	}
+
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+	/*
+	 * If we pay attention to cpu_util in high load scenarios,
+	 * we often can't find a suitable CPU, so we ignore cpu_util
+	 * here and try again!
+	 */
+	if (!ignore_overutil && *best_cpu == -1) {
+		ignore_overutil = true;
+		goto retry;
+	}
+#endif
 
 	rcu_read_unlock();
 }
@@ -220,10 +279,22 @@ static inline bool walt_rt_task_fits_capacity(struct task_struct *p, int cpu)
 static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *p,
 					     bool sync)
 {
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+	sa_skip_rt_sync(rq, p, &sync);
+#endif
+
 	return sync &&
 		p->prio <= rq->rt.highest_prio.next &&
 		rq->rt.rt_nr_running <= 2;
 }
+
+enum rt_fastpaths {
+	NONE = 0,
+	NON_WAKEUP,
+	SYNC_WAKEUP,
+	CLUSTER_PACKING_FASTPATH,
+};
+
 
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)
@@ -234,13 +305,17 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	bool sync = !!(wake_flags & WF_SYNC);
 	int ret, target = -1, this_cpu;
 	struct cpumask *lowest_mask;
+	int packing_cpu;
+	int fastpath = NONE;
 
 	if (unlikely(walt_disabled))
 		return;
 
 	/* For anything but wake ups, just return the task_cpu */
-	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
-		return;
+	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK) {
+		fastpath = NON_WAKEUP;
+		goto out;
+	}
 
 	this_cpu = raw_smp_processor_id();
 	this_cpu_rq = cpu_rq(this_cpu);
@@ -251,8 +326,9 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	if (sysctl_sched_sync_hint_enable && cpu_active(this_cpu) && !cpu_halted(this_cpu) &&
 	    cpumask_test_cpu(this_cpu, task->cpus_ptr) &&
 	    walt_should_honor_rt_sync(this_cpu_rq, task, sync)) {
+		fastpath = SYNC_WAKEUP;
 		*new_cpu = this_cpu;
-		return;
+		goto out;
 	}
 
 	*new_cpu = cpu; /* previous CPU as back up */
@@ -288,6 +364,14 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	ret = cpupri_find_fitness(&task_rq(task)->rd->cpupri, task,
 				lowest_mask, walt_rt_task_fits_capacity);
 
+	/* create a fastpath for finding a packing cpu */
+	packing_cpu = walt_find_and_choose_cluster_packing_cpu(task_cpu(task), task);
+	if (packing_cpu >= 0) {
+		fastpath = CLUSTER_PACKING_FASTPATH;
+		*new_cpu = packing_cpu;
+		goto unlock;
+	}
+
 	walt_rt_energy_aware_wake_cpu(task, lowest_mask, ret, &target);
 
 	/*
@@ -310,8 +394,10 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 		if (target < nr_cpu_ids)
 			*new_cpu = target;
 	}
-
+unlock:
 	rcu_read_unlock();
+out:
+	trace_sched_select_task_rt(task, fastpath);
 }
 
 
@@ -319,6 +405,18 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *task,
 				   struct cpumask *lowest_mask, int ret, int *best_cpu)
 
 {
+	int packing_cpu;
+
+	if (unlikely(walt_disabled))
+		return;
+
+	/* create a fastpath for finding a packing cpu */
+	packing_cpu = walt_find_and_choose_cluster_packing_cpu(task_cpu(task), task);
+	if (packing_cpu >= 0) {
+		*best_cpu = packing_cpu;
+		return;
+	}
+
 	walt_rt_energy_aware_wake_cpu(task, lowest_mask, ret, best_cpu);
 
 	/*

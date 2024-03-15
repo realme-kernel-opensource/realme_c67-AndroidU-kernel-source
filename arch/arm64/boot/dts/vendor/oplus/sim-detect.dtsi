@@ -1,0 +1,6 @@
+&soc {
+	oplus_sim_detect {
+		compatible = "oplus, sim_detect";
+		Hw,sim_det = "modem_det";
+	};
+};

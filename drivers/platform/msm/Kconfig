@@ -3,6 +3,15 @@
 menu "Qualcomm technologies inc. MSM specific device drivers"
 	depends on ARCH_QCOM
 
+config ECPRI_DMA
+	tristate "ECPRI_DMA support"
+	depends on NET
+	help
+	  eCPRI DMA is a programmable direct memory access (DMA) HW block
+	  designed to service memory access for eCPRI complex.
+	  The driver supports client connection and configuration of the
+	  DMA hw block.
+
 config IPA3
 	tristate "IPA3 support"
 	depends on NET
@@ -15,6 +24,15 @@ config IPA3
 	  for the IPA core.
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
+
+config QPNP_REVID
+	tristate "QPNP Revision ID Peripheral"
+	depends on SPMI
+	help
+	  Say 'y' here to include support for the Qualcomm Technologies, Inc.
+	  QPNP REVID peripheral. REVID prints out the PMIC type and revision
+	  numbers in the kernel log along with the PMIC option status. The PMIC
+	  type is mapped to a QTI chip part number and logged as well.
 
 config EP_PCIE
 	bool "PCIe Endpoint mode support"

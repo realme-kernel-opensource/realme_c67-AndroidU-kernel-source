@@ -437,7 +437,7 @@ static void SA5_submit_command_ioaccel2(struct ctlr_info *h,
 }
 
 /*
- *  This card is the opposite of the other cards.
+ *  This card is the oplussite of the other cards.
  *   0 turns interrupts on...
  *   0x08 turns them off...
  */

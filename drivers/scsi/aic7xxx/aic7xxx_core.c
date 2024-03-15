@@ -1920,7 +1920,7 @@ ahc_handle_scsiint(struct ahc_softc *ahc, u_int intstat)
 			if (lastphase != P_BUSFREE) {
 				/*
 				 * Renegotiate with this device at the
-				 * next opportunity just in case this busfree
+				 * next oplusrtunity just in case this busfree
 				 * is due to a negotiation mismatch with the
 				 * device.
 				 */
@@ -2417,7 +2417,7 @@ ahc_validate_width(struct ahc_softc *ahc, struct ahc_initiator_tinfo *tinfo,
 
 /*
  * Update the bitmask of targets for which the controller should
- * negotiate with at the next convenient opportunity.  This currently
+ * negotiate with at the next convenient oplusrtunity.  This currently
  * means the next time we send the initial identify messages for
  * a new transaction.
  */

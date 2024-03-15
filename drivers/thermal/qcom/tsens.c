@@ -19,6 +19,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
+#include <linux/thermal_minidump.h>
 #include "tsens.h"
 #include "thermal_zone_internal.h"
 
@@ -631,8 +632,17 @@ get_temp:
 	/* Valid bit is set, OK to read the temperature */
 	*temp = tsens_hw_to_mC(s, temp_idx);
 
+	/* Save temperature data to minidump */
+	if (s->priv->tsens_md != NULL && s->tzd)
+		thermal_minidump_update_data(s->priv->tsens_md,
+			s->tzd->type, temp);
+
 dump_and_exit:
-	TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
+	if (s->tzd)
+		TSENS_DBG(priv, "Sensor_id: %d name:%s temp: %d",
+				hw_id, s->tzd->type, *temp);
+	else
+		TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
 
 	return 0;
 }
@@ -660,7 +670,11 @@ int get_temp_common(const struct tsens_sensor *s, int *temp)
 
 		*temp = code_to_degc(last_temp, s) * 1000;
 
-		TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
+		if (s->tzd)
+			TSENS_DBG(priv, "Sensor_id: %d name:%s temp: %d",
+					hw_id, s->tzd->type, *temp);
+		else
+			TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
 
 		return 0;
 	} while (time_before(jiffies, timeout));
@@ -749,6 +763,11 @@ static void tsens_debug_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: unable to create IPC Logging for %s\n",
 				__func__, tsens_name);
 
+	snprintf(tsens_name, sizeof(tsens_name), "%s_2", dev_name(&pdev->dev));
+	priv->ipc_log2 = ipc_log_context_create(0x1, tsens_name, 0);
+	if (!priv->ipc_log2)
+		dev_err(&pdev->dev, "%s: unable to create IPC Logging for %s\n",
+				__func__, tsens_name);
 }
 #else
 static inline void tsens_debug_init(struct platform_device *pdev) {}
@@ -973,6 +992,13 @@ static int tsens_get_trend(void *data, int trip, enum thermal_trend *trend)
 	return -ENOTSUPP;
 }
 
+static int tsens_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct tsens_sensor *s = data;
+
+	return qti_tz_change_mode(s->tzd, mode);
+}
+
 static int  __maybe_unused tsens_suspend(struct device *dev)
 {
 	struct tsens_priv *priv = dev_get_drvdata(dev);
@@ -1032,6 +1058,7 @@ static const struct thermal_zone_of_device_ops tsens_of_ops = {
 	.get_temp = tsens_get_temp,
 	.get_trend = tsens_get_trend,
 	.set_trips = tsens_set_trips,
+	.change_mode = tsens_tz_change_mode,
 };
 
 static int tsens_register_irq(struct tsens_priv *priv, char *irqname,
@@ -1077,7 +1104,7 @@ static int tsens_register_irq(struct tsens_priv *priv, char *irqname,
 
 static int tsens_register(struct tsens_priv *priv)
 {
-	int i, ret;
+	int i, temp, ret;
 	struct thermal_zone_device *tzd;
 
 	for (i = 0;  i < priv->num_sensors; i++) {
@@ -1087,10 +1114,21 @@ static int tsens_register(struct tsens_priv *priv)
 							   &tsens_of_ops);
 		if (IS_ERR(tzd))
 			continue;
+
+		if (priv->ops->get_temp) {
+			ret = priv->ops->get_temp(&priv->sensor[i], &temp);
+			if (ret) {
+				dev_err(priv->dev, "[%u] %s: error reading sensor\n",
+					priv->sensor[i].hw_id, __func__);
+				continue;
+			}
+			TSENS_DBG_2(priv, "Sensor_id: %d name:%s temp: %d",
+					priv->sensor[i].hw_id, tzd->type, temp);
+		}
+
 		priv->sensor[i].tzd = tzd;
 		if (priv->ops->enable)
 			priv->ops->enable(priv, i);
-		qti_update_tz_ops(tzd, true);
 	}
 
 	/* VER_0 require to set MIN and MAX THRESH
@@ -1189,22 +1227,22 @@ static int tsens_probe(struct platform_device *pdev)
 		}
 	}
 
+	priv->tsens_md = thermal_minidump_register(np->name);
+
 	return tsens_register(priv);
 }
 
 static int tsens_remove(struct platform_device *pdev)
 {
 	struct tsens_priv *priv = platform_get_drvdata(pdev);
-	int i;
 
 	debugfs_remove_recursive(priv->debug_root);
 	tsens_disable_irq(priv);
 	if (priv->ops->disable)
 		priv->ops->disable(priv);
 
-	for (i = 0; i < priv->num_sensors; i++)
-		if (priv->sensor[i].tzd)
-			qti_update_tz_ops(priv->sensor[i].tzd, false);
+	thermal_minidump_unregister(priv->tsens_md);
+
 	return 0;
 }
 

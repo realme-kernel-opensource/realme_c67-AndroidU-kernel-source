@@ -140,7 +140,7 @@ mraid_mm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		return (-EINVAL);
 
 	/*
-	 * If it is a driver ioctl (as opposed to fw ioctls), then we can
+	 * If it is a driver ioctl (as oplussed to fw ioctls), then we can
 	 * handle the command locally. rval > 0 means it is not a drvr cmd
 	 */
 	rval = handle_drvrcmd(argp, old_ioctl, &drvrcmd_rval);

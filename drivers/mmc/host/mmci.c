@@ -1462,7 +1462,7 @@ static int mmci_pio_read(struct mmci_host *host, char *buffer, unsigned int rema
 
 		/*
 		 * SDIO especially may want to send something that is
-		 * not divisible by 4 (as opposed to card sectors
+		 * not divisible by 4 (as oplussed to card sectors
 		 * etc). Therefore make sure to always read the last bytes
 		 * while only doing full 32-bit reads towards the FIFO.
 		 */
@@ -1507,7 +1507,7 @@ static int mmci_pio_write(struct mmci_host *host, char *buffer, unsigned int rem
 
 		/*
 		 * SDIO especially may want to send something that is
-		 * not divisible by 4 (as opposed to card sectors
+		 * not divisible by 4 (as oplussed to card sectors
 		 * etc), and the FIFO only accept full 32-bit writes.
 		 * So compensate by adding +3 on the count, a single
 		 * byte become a 32bit write, 7 bytes will be two
@@ -2254,7 +2254,9 @@ static int mmci_probe(struct amba_device *dev,
 	pm_runtime_set_autosuspend_delay(&dev->dev, 50);
 	pm_runtime_use_autosuspend(&dev->dev);
 
-	mmc_add_host(mmc);
+	ret = mmc_add_host(mmc);
+	if (ret)
+		goto clk_disable;
 
 	pm_runtime_put(&dev->dev);
 	return 0;

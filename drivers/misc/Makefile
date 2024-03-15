@@ -61,3 +61,21 @@ obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-$(CONFIG_HI6421V600_IRQ)	+= hi6421v600-irq.o
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-$(CONFIG_OPEN_DICE)		+= open-dice.o
+obj-$(CONFIG_QSEECOM_PROXY) 	+= qseecom_proxy.o
+obj-$(CONFIG_QPNP_MISC)		+= qpnp-misc.o
+obj-$(CONFIG_OCP2130_BIAS)	+= ocp2130_bias/
+obj-$(CONFIG_OPLUS_TP_PANEL_NOTIFIER) += oplus_tp_panel_notifier/
+#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
+#mael.ma@network.RF 2021/07/06 modify for rf_cable
+oplus_bsp_rfcablemonitor-y           := oplus_rf_cable_monitor.o
+obj-$(CONFIG_OPLUS_RF_CABLE_MONITOR)   += oplus_bsp_rfcablemonitor.o
+#endif /* OPLUS_FEATURE_RF_CABLE_DETECT */
+
+#ifdef OPLUS_FEATURE_SIM_DETECT
+obj-$(CONFIG_SIM_DETECT)	+= sim_detect.o
+#endif
+
+#ifdef OPLUS_FEATURE_SIM_DETECT
+obj-$(CONFIG_OEM_QMI)	+= oem_qmi_client.o
+#endif
+

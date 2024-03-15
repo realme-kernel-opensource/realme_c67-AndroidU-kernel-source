@@ -1,0 +1,33 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/oplus/hw-id.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "khaje-qrd.dtsi"
+#include "khaje-qrd-nopmi.dtsi"
+#include "zoe-charger.dtsi"
+#include "zoe-display.dtsi"
+#include "zoe-touch.dtsi"
+#include "sim-detect.dtsi"
+#include "uff_zoe.dtsi"
+#include "rf-cable.dtsi"
+#include "khaje-qrd-sdhc-overlay.dtsi"
+#include "zoe-main-sub-overlay.dtsi"
+#include "nfc-zoe-pn560.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Khaje SoC";
+	compatible = "qcom,khaje";
+	qcom,msm-id = <518 0x10000>, <586 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+	qcom,pmic-id = <0x2D 0x0 0x0 0x0>;
+    	oplus,project-id = <23699>;
+    	oplus,hw-id = <OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_DVT2 OPLUS_PVT1 OPLUS_MP1>;
+};
+
+&L23A {
+	//liupeng@CONN 2023/10/03, modify L23A  VREG_L23A_3P3  3.3V
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3400000>;
+	qcom,init-voltage = <3300000>;
+};

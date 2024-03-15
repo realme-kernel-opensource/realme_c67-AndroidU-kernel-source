@@ -1,0 +1,13 @@
+&qupv3_se1_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
+	ocp2130@3e {
+		compatible = "qcom,ocp2130_bias";
+		reg = <0x3e>;
+		lcm-enp-gpio = <&tlmm 54 0>;
+		lcm-enn-gpio = <&tlmm 103 0>;
+		lcm-vddio-gpio = <&tlmm 84 0>;
+		status = "okay";
+	};
+};

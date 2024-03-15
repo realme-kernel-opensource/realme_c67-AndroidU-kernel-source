@@ -1367,3 +1367,7 @@ config TOUCHSCREEN_ZINITIX
 	  module will be called zinitix.
 
 endif
+
+source "drivers/input/touchscreen/FT3518/Kconfig"
+source "drivers/input/touchscreen/touch_custom/Kconfig"
+source "drivers/input/touchscreen/oplus_touchscreen_v2/Kconfig"

@@ -498,7 +498,7 @@ static void hidpp_scroll_counter_handle_scroll(struct input_dev *input_dev,
 	/* Some wheels will rest 7/8ths of a detent from the previous detent
 	 * after slow movement, so we want the threshold for low-res events to
 	 * be in the middle between two detents (e.g. after 4/8ths) as
-	 * opposed to on the detents themselves (8/8ths).
+	 * oplussed to on the detents themselves (8/8ths).
 	 */
 	if (abs(remainder) >= 60) {
 		/* Add (or subtract) 1 because we want to trigger when the wheel

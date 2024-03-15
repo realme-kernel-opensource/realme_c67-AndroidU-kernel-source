@@ -1,0 +1,151 @@
+#include "zoe-touch-fw-file.dtsi"
+&qupv3_se0_spi_pins {
+	qupv3_se0_spi_cs_active: qupv3_se0_spi_cs_active {
+		mux {
+			pins = "gpio3";
+			function = "qup0";
+		};
+
+		config {
+			pins = "gpio3";
+			drive-strength = <8>;
+			output-high;
+			bias-pull-up;
+		};
+	};
+
+	qupv3_se0_spi_cs_sleep: qupv3_se0_spi_cs_sleep {
+		mux {
+			pins = "gpio3";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio3";
+			drive-strength = <8>;
+			bias-disable;
+		};
+	};
+};
+
+&qupv3_se0_spi_active {
+	mux {
+		pins = "gpio0", "gpio1", "gpio2";
+		function = "qup0";
+	};
+
+	config {
+		pins = "gpio0", "gpio1", "gpio2";
+		drive-strength = <8>;
+		bias-pull-down;
+	};
+};
+
+&qupv3_se0_spi_sleep {
+	mux {
+		pins = "gpio0", "gpio1", "gpio2";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio0", "gpio1", "gpio2";
+		drive-strength = <8>;
+		bias-pull-down;
+	};
+};
+
+
+&ts_int_active {
+	mux {
+		pins = "gpio112";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio112";
+		drive-strength = <8>;
+		bias-pull-down;
+	};
+};
+
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio112";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio112";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
+
+&ts_reset_active {
+	mux {
+		pins = "gpio96";
+		function = "gpio";
+	};
+
+	config {
+		pins = "gpio96";
+		drive-strength = <8>;
+		bias-pull-up;
+	};
+};
+
+&qupv3_se0_spi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&qupv3_se0_spi_active>, <&qupv3_se0_spi_cs_active>;
+	pinctrl-1 = <&qupv3_se0_spi_sleep>, <&qupv3_se0_spi_cs_sleep>;
+	status = "okay";
+	novatek@0 {
+		compatible = "novatek,nf_nt36672c";
+		reg = <0>; //Same as CS ID
+		status = "ok";
+		spi-max-frequency = <9600000>;
+        interrupt-parent = <&tlmm>;
+		interrupts = <112 0x2002>;
+		reset-gpio = <&tlmm 96 0x00>;
+		cs-gpio = <&tlmm 3 0x00>;
+        irq-gpio = <&tlmm 112 0x2002>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		touchpanel,max-num-support = <10>;
+		touchpanel,panel-coords = <4320 9600>;
+		touchpanel,display-coords = <4320 9600>;
+		touchpanel,tx-rx-num = <18 36>;
+		tp_type = <3>;//BOE
+		panel_type = <3>;
+		chip-name = "NT36672C";
+		platform_support_project = <23697 23698 23699>;
+		platform_support_project_dir = <23697 23697 23697>;
+		platform_support_commandline = "default_commandline","default_commandline","default_commandline";
+		platform_support_project_commandline = "default_commandline","default_commandline","default_commandline";
+		platform_support_project_external_name = "FA261";
+		vid_len = <7>;
+
+		incell_screen;
+		fw_edge_limit_support;
+		black_gesture_support;
+		charger_pump_support;
+		headset_pump_support;
+		black_gesture_test_support;
+		game_switch_support;
+		noflash_support;
+		lcd_trigger_load_tp_fw_support;
+		smart_gesture_support;
+		pressure_report_support;
+		irq_need_dev_resume_ok;
+		//fw_update_app_support;
+		health_monitor_support;
+		health_monitor_v2_support;
+		//fw_update_in_probe_with_headfile;
+		black_gesture_indep_support;
+		report_rate_white_list_support;
+	};
+
+};

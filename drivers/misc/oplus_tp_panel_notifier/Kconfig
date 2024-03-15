@@ -1,0 +1,10 @@
+#
+# oplus panel notifier driver configuration
+#
+
+config OPLUS_TP_PANEL_NOTIFIER
+	tristate "oplus touch panel notifier"
+	default m
+	help
+	  Say Y here if you use oplus touch panel notifier.
+	  If unsure, say N.

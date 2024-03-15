@@ -1230,7 +1230,7 @@ int asd_post_ascb_list(struct asd_ha_struct *asd_ha, struct asd_ascb *ascb,
  * Since sending a list of ascbs is a superset of sending a single
  * ascb, this function exists to generalize this.  More specifically,
  * when sending a list of those, we want to do only a _single_
- * memcpy() at swap head, as opposed to for each ascb sent (in the
+ * memcpy() at swap head, as oplussed to for each ascb sent (in the
  * case of sending them one by one).  That is, we want to minimize the
  * ratio of memcpy() operations to the number of ascbs sent.  The same
  * logic applies to asd_post_ascb_list().

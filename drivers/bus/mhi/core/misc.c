@@ -267,6 +267,34 @@ void mhi_reg_write_work(struct work_struct *w)
 	msm_pcie_allow_l1(parent);
 }
 
+int mhi_misc_sysfs_create(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	int ret = 0;
+
+	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
+	if (ret) {
+		MHI_ERR(dev, "Failed to create misc sysfs group\n");
+		return ret;
+	}
+
+	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
+	if (ret) {
+		MHI_ERR(dev, "Failed to create time synchronization sysfs group\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+void  mhi_misc_sysfs_destroy(struct mhi_controller *mhi_cntrl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+
+	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
+	sysfs_remove_group(&dev->kobj, &mhi_misc_group);
+}
+
 int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 {
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
@@ -322,14 +350,6 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	atomic_set(&mhi_priv->write_idx, -1);
 
-	ret = sysfs_create_group(&dev->kobj, &mhi_misc_group);
-	if (ret)
-		MHI_ERR(dev, "Failed to create misc sysfs group\n");
-
-	ret = sysfs_create_group(&dev->kobj, &mhi_tsync_group);
-	if (ret)
-		MHI_ERR(dev, "Failed to create time synchronization sysfs group\n");
-
 	return 0;
 
 wq_cleanup:
@@ -342,7 +362,6 @@ ipc_ctx_cleanup:
 
 void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 {
-	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(&mhi_cntrl->mhi_dev->dev);
 
 	if (!mhi_priv)
@@ -351,9 +370,6 @@ void mhi_misc_unregister_controller(struct mhi_controller *mhi_cntrl)
 	mutex_lock(&mhi_bus.lock);
 	list_del(&mhi_priv->node);
 	mutex_unlock(&mhi_bus.lock);
-
-	sysfs_remove_group(&dev->kobj, &mhi_tsync_group);
-	sysfs_remove_group(&dev->kobj, &mhi_misc_group);
 
 	kfree(mhi_priv->reg_write_q);
 
@@ -446,6 +462,7 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 	struct mhi_private *mhi_priv;
 	struct mhi_sfr_info *sfr_info;
 	enum mhi_pm_state cur_state;
+	unsigned long flags;
 
 	if (!mhi_cntrl)
 		return -EINVAL;
@@ -454,7 +471,7 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 	mhi_priv = dev_get_drvdata(dev);
 	sfr_info = mhi_priv->sfr_info;
 
-	write_lock_irq(&mhi_cntrl->pm_lock);
+	write_lock_irqsave(&mhi_cntrl->pm_lock, flags);
 
 	cur_state = mhi_tryset_pm_state(mhi_cntrl, MHI_PM_SYS_ERR_DETECT);
 	if (cur_state != MHI_PM_SYS_ERR_DETECT) {
@@ -462,13 +479,15 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 			"Failed to move to state: %s from: %s\n",
 			to_mhi_pm_state_str(MHI_PM_SYS_ERR_DETECT),
 			to_mhi_pm_state_str(mhi_cntrl->pm_state));
+
+		write_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 		return -EPERM;
 	}
 
 	/* force inactive/error state */
 	mhi_cntrl->dev_state = MHI_STATE_SYS_ERR;
 	wake_up_all(&mhi_cntrl->state_event);
-	write_unlock_irq(&mhi_cntrl->pm_lock);
+	write_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
 
 	/* copy subsystem failure reason string if supported */
 	if (sfr_info && sfr_info->buf_addr) {
@@ -953,6 +972,11 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		{ NULL },
 	};
 
+	if (!mhi_cntrl->regs || !mhi_cntrl->bhi || !mhi_cntrl->bhie) {
+		MHI_ERR(dev, "Cannot dump MHI/BHI registers\n");
+		return;
+	}
+
 	MHI_ERR(dev, "host pm_state:%s dev_state:%s ee:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
@@ -1049,6 +1073,9 @@ static int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		return ret;
 	do {
+		if (*offset >= MHI_REG_SIZE)
+			return -ENXIO;
+
 		ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, *offset,
 					 CAP_CAPID_MASK, CAP_CAPID_SHIFT,
 					 &cur_cap);
@@ -1065,8 +1092,6 @@ static int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
 			return ret;
 
 		*offset = next_offset;
-		if (*offset >= MHI_REG_SIZE)
-			return -ENXIO;
 	} while (next_offset);
 
 	return -ENXIO;
@@ -1364,6 +1389,18 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 
 	spin_lock_bh(&mhi_event->lock);
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
+
+	/**
+	 * Check the ev ring local pointer is same as ctxt pointer
+	 * if both are same do not process ev ring.
+	 */
+	if (ev_ring->rp == dev_rp) {
+		MHI_VERB(dev, "Ignore BW event:0x%llx ev_ring RP:0x%llx\n",
+			 dev_rp->ptr,
+			 (u64)mhi_to_physical(ev_ring, ev_ring->rp));
+		spin_unlock_bh(&mhi_event->lock);
+		return 0;
+	}
 
 	/* if rp points to base, we need to wrap it around */
 	if (dev_rp == ev_ring->base)
@@ -1882,7 +1919,36 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl)
 		 TO_MHI_STATE_STR(mhi_cntrl->dev_state),
 		 TO_MHI_EXEC_STR(mhi_cntrl->ee));
 
+	/* notify critical clients in absence of RDDM */
+	mhi_report_error(mhi_cntrl);
+
 	mhi_soc_reset(mhi_cntrl);
 	return mhi_rddm_download_status(mhi_cntrl);
 }
 EXPORT_SYMBOL(mhi_force_reset);
+
+/* Get SoC info before registering mhi controller */
+int mhi_get_soc_info(struct mhi_controller *mhi_cntrl)
+{
+	u32 soc_info;
+	int ret;
+
+	/* Read the MHI device info */
+	ret = mhi_read_reg(mhi_cntrl, mhi_cntrl->regs,
+			   SOC_HW_VERSION_OFFS, &soc_info);
+	if (ret)
+		goto done;
+
+	mhi_cntrl->family_number = (soc_info & SOC_HW_VERSION_FAM_NUM_BMSK) >>
+					SOC_HW_VERSION_FAM_NUM_SHFT;
+	mhi_cntrl->device_number = (soc_info & SOC_HW_VERSION_DEV_NUM_BMSK) >>
+					SOC_HW_VERSION_DEV_NUM_SHFT;
+	mhi_cntrl->major_version = (soc_info & SOC_HW_VERSION_MAJOR_VER_BMSK) >>
+					SOC_HW_VERSION_MAJOR_VER_SHFT;
+	mhi_cntrl->minor_version = (soc_info & SOC_HW_VERSION_MINOR_VER_BMSK) >>
+					SOC_HW_VERSION_MINOR_VER_SHFT;
+
+done:
+	return ret;
+}
+EXPORT_SYMBOL(mhi_get_soc_info);

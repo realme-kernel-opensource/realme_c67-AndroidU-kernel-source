@@ -620,7 +620,7 @@ static int __maybe_unused qusb2_phy_runtime_suspend(struct device *dev)
 
 	/*
 	 * Enable DP/DM interrupts to detect line state changes based on current
-	 * speed. In other words, enable the triggers _opposite_ of what the
+	 * speed. In other words, enable the triggers _oplussite_ of what the
 	 * current D+/D- levels are e.g. if currently D+ high, D- low
 	 * (HS 'J'/Suspend), configure the mask to trigger on D+ low OR D- high
 	 */

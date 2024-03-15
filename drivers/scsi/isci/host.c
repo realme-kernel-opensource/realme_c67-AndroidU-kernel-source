@@ -874,7 +874,7 @@ bool is_controller_start_complete(struct isci_host *ihost)
 			continue;
 
 		/* The controller start operation is complete iff:
-		 * - all links have been given an opportunity to start
+		 * - all links have been given an oplusrtunity to start
 		 * - have no indication of a connected device
 		 * - have an indication of a connected device and it has
 		 *   finished the link training process.

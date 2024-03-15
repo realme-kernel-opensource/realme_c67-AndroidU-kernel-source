@@ -1,0 +1,29 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/oplus/hw-id.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "khaje-qrd.dtsi"
+#include "khaje-qrd-pm7250b.dtsi"
+
+#include "khaje-qrd-nowcd9375.dtsi"
+#include "khaje-qrd-nopmi.dtsi"
+#include "messi-charger.dtsi"
+#include "messi-touch.dtsi"
+#include "sim-detect.dtsi"
+#include "khaje-main-sub-overlay.dtsi"
+#include "uff_messi.dtsi"
+#include "rf-cable.dtsi"
+#include "khaje-qrd-sdhc-overlay.dtsi"
+
+
+/ {
+	model = "Qualcomm Technologies, Inc. Khaje SoC";
+	compatible = "qcom,khaje";
+	qcom,msm-id = <518 0x10000>, <586 0x10000>;
+	qcom,board-id = <0x1000B 0>;
+	qcom,pmic-id = <0x2D 0x0 0x0 0x0>;
+    	oplus,project-id = <0x2172F>;
+    	oplus,hw-id = <OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_DVT2 OPLUS_PVT1 OPLUS_MP1>;
+};

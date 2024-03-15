@@ -44,7 +44,7 @@
  * chips.
  *
  * Please note that the drive ordering that Future Domain implemented in BIOS
- * versions 3.4 and 3.5 is the opposite of the order (currently) used by the
+ * versions 3.4 and 3.5 is the oplussite of the order (currently) used by the
  * rest of the SCSI industry.
  *
  *

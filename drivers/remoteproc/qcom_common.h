@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __RPROC_QCOM_COMMON_H__
 #define __RPROC_QCOM_COMMON_H__
@@ -10,6 +11,10 @@
 #include "remoteproc_internal.h"
 #include <linux/soc/qcom/qmi.h>
 #include <linux/remoteproc/qcom_rproc.h>
+
+//#ifndef OPLUS_FEATURE_MODEM_MINIDUMP
+#define OPLUS_FEATURE_MODEM_MINIDUMP
+//#endif /*OPLUS_FEATURE_MODEM_MINIDUMP*/
 
 static const char * const subdevice_state_string[] = {
 	[QCOM_SSR_BEFORE_POWERUP]	= "before_powerup",
@@ -61,7 +66,8 @@ extern bool qcom_device_shutdown_in_progress;
 typedef void (*rproc_dumpfn_t)(struct rproc *rproc, struct rproc_dump_segment *segment,
 			       void *dest, size_t offset, size_t size);
 
-void qcom_minidump(struct rproc *rproc, unsigned int minidump_id, rproc_dumpfn_t dumpfn);
+void qcom_minidump(struct rproc *rproc, struct device *md_dev,
+			unsigned int minidump_id, rproc_dumpfn_t dumpfn);
 
 void qcom_add_glink_subdev(struct rproc *rproc, struct qcom_rproc_glink *glink,
 			   const char *ssr_name);
@@ -76,6 +82,9 @@ void qcom_add_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr,
 			 const char *ssr_name);
 void qcom_notify_early_ssr_clients(struct rproc_subdev *subdev);
 void qcom_remove_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr);
+struct qcom_ssr_subsystem *qcom_ssr_get_subsys(const char *name);
+int qcom_notify_ssr_clients(struct qcom_ssr_subsystem *info, int state,
+							struct qcom_ssr_notify_data *data);
 
 #if IS_ENABLED(CONFIG_QCOM_SYSMON)
 struct qcom_sysmon *qcom_add_sysmon_subdev(struct rproc *rproc,
@@ -107,7 +116,8 @@ static inline uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon)
 	return 0;
 }
 
-int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon, char *buf, size_t len)
+static inline int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon,
+					char *buf, size_t len)
 {
 	return -ENODEV;
 }

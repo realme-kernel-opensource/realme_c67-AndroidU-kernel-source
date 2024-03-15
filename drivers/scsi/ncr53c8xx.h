@@ -190,7 +190,7 @@
 /*
 **	Work-around common bridge misbehaviour.
 **
-**	- Do not flush posted writes in the opposite 
+**	- Do not flush posted writes in the oplussite 
 **	  direction on read.
 **	- May reorder DMA writes to memory.
 **

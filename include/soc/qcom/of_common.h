@@ -16,7 +16,7 @@
  */
 static inline int of_fdt_get_ddrtype(void)
 {
-	int ret;
+	int ret = 0;
 	u32 ddr_type;
 	struct device_node *mem_node;
 
@@ -30,6 +30,40 @@ static inline int of_fdt_get_ddrtype(void)
 		return -ENOENT;
 
 	return ddr_type;
+}
+static inline int of_fdt_get_ddrsize(void)
+{
+	int ret = 0;
+	u32 ddr_size;
+	struct device_node *mem_node;
+
+	mem_node = of_find_node_by_path("/memory");
+	if (!mem_node)
+		return -ENOENT;
+
+	of_property_read_u32(mem_node, "ddr_size", &ddr_size);
+	of_node_put(mem_node);
+	if (ret < 0)
+		return -ENOENT;
+
+	return ddr_size;
+}
+static inline int of_fdt_get_ddrid(void)
+{
+	int ret = 0;
+	u32 ddr_manufacturer_id;
+	struct device_node *mem_node;
+
+	mem_node = of_find_node_by_path("/memory");
+	if (!mem_node)
+		return -ENOENT;
+
+	of_property_read_u32(mem_node, "ddr_manufacturer_id", &ddr_manufacturer_id);
+	of_node_put(mem_node);
+	if (ret < 0)
+		return -ENOENT;
+
+	return ddr_manufacturer_id;
 }
 
 #endif

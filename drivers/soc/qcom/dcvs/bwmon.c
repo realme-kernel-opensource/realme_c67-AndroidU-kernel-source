@@ -273,9 +273,15 @@ static BWMON_ATTR_RW(hyst_trigger_count);
 show_attr(hyst_length);
 store_attr(hyst_length, 0U, 90U);
 static BWMON_ATTR_RW(hyst_length);
+show_attr(idle_length);
+store_attr(idle_length, 0U, 90U);
+static BWMON_ATTR_RW(idle_length);
 show_attr(idle_mbps);
 store_attr(idle_mbps, 0U, 2000U);
 static BWMON_ATTR_RW(idle_mbps);
+show_attr(ab_scale);
+store_attr(ab_scale, 0U, 100U);
+static BWMON_ATTR_RW(ab_scale);
 show_list_attr(mbps_zones, NUM_MBPS_ZONES);
 store_list_attr(mbps_zones, NUM_MBPS_ZONES, 0U, UINT_MAX);
 static BWMON_ATTR_RW(mbps_zones);
@@ -297,7 +303,9 @@ static struct attribute *bwmon_attr[] = {
 	&hist_memory.attr,
 	&hyst_trigger_count.attr,
 	&hyst_length.attr,
+	&idle_length.attr,
 	&idle_mbps.attr,
+	&ab_scale.attr,
 	&mbps_zones.attr,
 	&throttle_adj.attr,
 	NULL,
@@ -576,8 +584,13 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	}
 
 	if (node->hyst_en) {
-		if (meas_mbps > node->idle_mbps)
+		if (meas_mbps > node->idle_mbps) {
 			req_mbps = max(req_mbps, node->hyst_mbps);
+			node->idle_en = node->idle_length;
+		} else if (node->idle_en) {
+			req_mbps = max(req_mbps, node->hyst_mbps);
+			node->idle_en--;
+		}
 	}
 
 	/* Stretch the short sample window size, if the traffic is too low */
@@ -624,8 +637,10 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	}
 
 	node->prev_ab = new_bw;
-	freq_mbps->ab = roundup(new_bw, node->bw_step);
 	freq_mbps->ib = (new_bw * 100) / io_percent;
+	if (node->ab_scale < 100)
+		new_bw = mult_frac(new_bw, node->ab_scale, 100);
+	freq_mbps->ab = roundup(new_bw, node->bw_step);
 	trace_bw_hwmon_update(dev_name(node->hw->dev),
 				freq_mbps->ab,
 				freq_mbps->ib,
@@ -808,7 +823,9 @@ static int configure_hwmon_node(struct bw_hwmon *hwmon)
 	node->hist_memory = 0;
 	node->hyst_trigger_count = 3;
 	node->hyst_length = 0;
+	node->idle_length = 0;
 	node->idle_mbps = 400;
+	node->ab_scale = 100;
 	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
 
@@ -1840,12 +1857,6 @@ static int __init qcom_bwmon_init(void)
 	return platform_driver_register(&qcom_bwmon_driver);
 }
 module_init(qcom_bwmon_init);
-
-static __exit void qcom_bwmon_exit(void)
-{
-	platform_driver_unregister(&qcom_bwmon_driver);
-}
-module_exit(qcom_bwmon_exit);
 
 MODULE_DESCRIPTION("QCOM BWMON driver");
 MODULE_LICENSE("GPL v2");

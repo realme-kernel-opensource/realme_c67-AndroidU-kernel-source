@@ -16,6 +16,7 @@
 #include <linux/suspend.h>
 #include "tsens2xxx.h"
 #include "../thermal_core.h"
+#include "thermal_zone_internal.h"
 
 LIST_HEAD(tsens_device_list);
 
@@ -45,6 +46,13 @@ static int tsens_set_trip_temp(void *data, int low_temp, int high_temp)
 	return 0;
 }
 
+static int tsens_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct tsens_sensor *s = data;
+
+	return qti_tz_change_mode(s->tzd, mode);
+}
+
 static int tsens_init(struct tsens_device *tmdev)
 {
 	return tmdev->ops->hw_init(tmdev);
@@ -63,37 +71,39 @@ static int tsens_register_interrupts(struct tsens_device *tmdev)
 	return 0;
 }
 
-#ifdef CONFIG_DEEPSLEEP
 static int tsens_suspend(struct device *dev)
 {
 	struct tsens_device *tmdev = dev_get_drvdata(dev);
 
-	if (mem_sleep_current != PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware() != PM_SUSPEND_MEM)
 		return 0;
 
 	return tmdev->ops->suspend(tmdev);
-}
-
-static int tsens_freeze(struct device *dev)
-{
-	return tsens_suspend(dev);
 }
 
 static int tsens_resume(struct device *dev)
 {
 	struct tsens_device *tmdev = dev_get_drvdata(dev);
 
-	if (mem_sleep_current != PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware() != PM_SUSPEND_MEM)
 		return 0;
 
 	return tmdev->ops->resume(tmdev);
 }
 
+static int tsens_freeze(struct device *dev)
+{
+	struct tsens_device *tmdev = dev_get_drvdata(dev);
+
+	return tmdev->ops->suspend(tmdev);
+}
+
 static int tsens_restore(struct device *dev)
 {
-	return tsens_resume(dev);
+	struct tsens_device *tmdev = dev_get_drvdata(dev);
+
+	return tmdev->ops->resume(tmdev);
 }
-#endif
 
 static const struct of_device_id tsens_table[] = {
 	{	.compatible = "qcom,msm8953-tsens",
@@ -127,6 +137,7 @@ MODULE_DEVICE_TABLE(of, tsens_table);
 static struct thermal_zone_of_device_ops tsens_tm_thermal_zone_ops = {
 	.get_temp = tsens_get_temp,
 	.set_trips = tsens_set_trip_temp,
+	.change_mode = tsens_tz_change_mode,
 };
 
 static struct thermal_zone_of_device_ops tsens_tm_min_thermal_zone_ops = {
@@ -395,23 +406,19 @@ static int tsens_tm_probe(struct platform_device *pdev)
 	return rc;
 }
 
-#ifdef CONFIG_DEEPSLEEP
 static const struct dev_pm_ops tsens_pm_ops = {
 	.freeze = tsens_freeze,
 	.restore = tsens_restore,
 	.suspend = tsens_suspend,
 	.resume = tsens_resume,
 };
-#endif
 
 static struct platform_driver tsens_tm_driver = {
 	.probe = tsens_tm_probe,
 	.remove = tsens_tm_remove,
 	.driver = {
 		.name = "msm-tsens",
-#ifdef CONFIG_DEEPSLEEP
 		.pm = &tsens_pm_ops,
-#endif
 		.of_match_table = tsens_table,
 	},
 };

@@ -385,7 +385,7 @@ static long gh_vm_ioctl_create_vcpu(struct gh_vm *vm, u32 id)
 	char name[MAX_VCPU_NAME];
 	int fd, err = 0;
 
-	if (id > GH_MAX_VCPUS)
+	if (id >= GH_MAX_VCPUS)
 		return -EINVAL;
 
 	mutex_lock(&vm->vm_lock);
@@ -491,7 +491,7 @@ int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 	ret = hyp_assign_phys(phys, size, srcVM, 1, destVM, destVMperm, 1);
 	if (ret) {
 		pr_err("failed hyp_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
-			phys, size, vmid, ret);
+		       &phys, size, vmid, ret);
 		goto err_hyp_assign;
 	}
 

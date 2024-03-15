@@ -2292,7 +2292,7 @@ static int fcoe_create(struct net_device *netdev, enum fip_mode fip_mode)
  * @netdev: The net_device to be used by the allocated FCoE Controller
  *
  * This routine is called from fcoe_sysfs. It will start the fcoe_ctlr
- * in a link_down state. The allows the user an opportunity to configure
+ * in a link_down state. The allows the user an oplusrtunity to configure
  * the FCoE Controller from sysfs before enabling the FCoE Controller.
  *
  * Creating in with this routine starts the FCoE Controller in Fabric
@@ -2501,6 +2501,7 @@ static int __init fcoe_init(void)
 
 out_free:
 	mutex_unlock(&fcoe_config_mutex);
+	fcoe_transport_detach(&fcoe_sw_transport);
 out_destroy:
 	destroy_workqueue(fcoe_wq);
 	return rc;

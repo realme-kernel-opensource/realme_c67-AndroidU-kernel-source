@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2018-2020 Oplus. All rights reserved.
+
+config OPLUS_FEATURE_PERFORMANCE_MM
+	bool "config oplus kernel mm feature"
+	default y
+	help
+	  define this config to add oplus kernel mm feature
+
+
+
+
+
+
+
+
+
+source "mm/oplus_mm/hybridswap_zram/Kconfig"
+
+

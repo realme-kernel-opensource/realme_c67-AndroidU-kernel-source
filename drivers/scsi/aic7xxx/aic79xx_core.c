@@ -3804,7 +3804,7 @@ ahd_validate_width(struct ahd_softc *ahd, struct ahd_initiator_tinfo *tinfo,
 
 /*
  * Update the bitmask of targets for which the controller should
- * negotiate with at the next convenient opportunity.  This currently
+ * negotiate with at the next convenient oplusrtunity.  This currently
  * means the next time we send the initial identify messages for
  * a new transaction.
  */
@@ -4166,7 +4166,7 @@ ahd_update_neg_table(struct ahd_softc *ahd, struct ahd_devinfo *devinfo,
 
 	/*
 	 * During packetized transfers, the target will
-	 * give us the opportunity to send command packets
+	 * give us the oplusrtunity to send command packets
 	 * without us asserting attention.
 	 */
 	if ((tinfo->ppr_options & MSG_EXT_PPR_IU_REQ) == 0)

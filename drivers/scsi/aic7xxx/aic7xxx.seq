@@ -1275,7 +1275,7 @@ data_phase_done:
 	/*
 	 * After a DMA finishes, save the SG and STCNT residuals back into
 	 * the SCB.  We use STCNT instead of HCNT, since it's a reflection
-	 * of how many bytes were transferred on the SCSI (as opposed to the
+	 * of how many bytes were transferred on the SCSI (as oplussed to the
 	 * host) bus.
 	 */
 	if ((ahc->features & AHC_CMD_CHAN) != 0) {

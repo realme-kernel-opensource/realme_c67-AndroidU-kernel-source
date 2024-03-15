@@ -393,7 +393,7 @@ efct_scsi_new_device(struct efct *efct)
 
 	/*
 	 * Set initial can_queue value to the max SCSI IOs. This is the maximum
-	 * global queue depth (as opposed to the per-LUN queue depth --
+	 * global queue depth (as oplussed to the per-LUN queue depth --
 	 * .cmd_per_lun This may need to be adjusted for I+T mode.
 	 */
 	shost->can_queue = efct->hw.config.n_io;
